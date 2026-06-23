@@ -1,5 +1,6 @@
 //Z2.h
 #pragma once
+#include <cstdint>
 #include"algebra.h"
 #include"Fp.h"
 

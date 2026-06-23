@@ -49,65 +49,82 @@ option(WIDE_EXPONENT "Use a 64-bit packed exponent type instead of the default 3
 set(EXPONENT_WIDTH_TARGETS "")
 
 # ---------------------------------------------------------------------------
-# OpenMP via Homebrew libomp (AppleClang has no built-in OpenMP runtime).
-# find_package(OpenMP) does not locate Homebrew's libomp out of the box on
-# AppleClang, so we look it up explicitly via `brew --prefix libomp`, with a
-# hardcoded fallback to the standard Apple Silicon prefix.
+# OpenMP
+#   macOS: AppleClang has no built-in OpenMP runtime; find_package(OpenMP)
+#     does not locate Homebrew's libomp out of the box, so we look it up via
+#     `brew --prefix libomp` (with a hardcoded Apple Silicon fallback).
+#   Linux/other: GCC and Clang link OpenMP via -fopenmp; use CMake's module.
 # ---------------------------------------------------------------------------
-find_program(BREW_EXECUTABLE brew)
-if(BREW_EXECUTABLE)
-  execute_process(
-    COMMAND ${BREW_EXECUTABLE} --prefix libomp
-    OUTPUT_VARIABLE LIBOMP_PREFIX
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-  )
-endif()
-if(NOT LIBOMP_PREFIX)
-  set(LIBOMP_PREFIX /opt/homebrew/opt/libomp)
-endif()
-
-find_path(LIBOMP_INCLUDE_DIR omp.h PATHS ${LIBOMP_PREFIX}/include)
-find_library(LIBOMP_LIBRARY omp PATHS ${LIBOMP_PREFIX}/lib)
-
-if(NOT LIBOMP_INCLUDE_DIR OR NOT LIBOMP_LIBRARY)
-  message(FATAL_ERROR "Could not find Homebrew libomp (looked in ${LIBOMP_PREFIX}). Install it with `brew install libomp`.")
-endif()
-
-# Imported target standing in for OpenMP::OpenMP_CXX, since
-# find_package(OpenMP) does not reliably resolve Homebrew's libomp with
-# AppleClang.
 add_library(homebrew_omp INTERFACE)
-target_compile_options(homebrew_omp INTERFACE -Xpreprocessor -fopenmp)
-target_include_directories(homebrew_omp INTERFACE ${LIBOMP_INCLUDE_DIR})
-target_link_libraries(homebrew_omp INTERFACE ${LIBOMP_LIBRARY})
+
+if(APPLE)
+  find_program(BREW_EXECUTABLE brew)
+  if(BREW_EXECUTABLE)
+    execute_process(
+      COMMAND ${BREW_EXECUTABLE} --prefix libomp
+      OUTPUT_VARIABLE LIBOMP_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+  endif()
+  if(NOT LIBOMP_PREFIX)
+    set(LIBOMP_PREFIX /opt/homebrew/opt/libomp)
+  endif()
+
+  find_path(LIBOMP_INCLUDE_DIR omp.h PATHS ${LIBOMP_PREFIX}/include)
+  find_library(LIBOMP_LIBRARY omp PATHS ${LIBOMP_PREFIX}/lib)
+
+  if(NOT LIBOMP_INCLUDE_DIR OR NOT LIBOMP_LIBRARY)
+    message(FATAL_ERROR "Could not find Homebrew libomp (looked in ${LIBOMP_PREFIX}). Install it with `brew install libomp`.")
+  endif()
+
+  target_compile_options(homebrew_omp INTERFACE -Xpreprocessor -fopenmp)
+  target_include_directories(homebrew_omp INTERFACE ${LIBOMP_INCLUDE_DIR})
+  target_link_libraries(homebrew_omp INTERFACE ${LIBOMP_LIBRARY})
+else()
+  find_package(OpenMP REQUIRED)
+  target_link_libraries(homebrew_omp INTERFACE OpenMP::OpenMP_CXX)
+endif()
 
 # ---------------------------------------------------------------------------
-# GMP via Homebrew (only needed by BPtab and mr_BP, through Qp.h/Qp.cpp).
-# CMake ships no FindGMP module, so locate it manually under the Homebrew
-# prefix.
+# GMP (only needed by BPtab and mr_BP, through Qp.h/Qp.cpp).
+# CMake ships no FindGMP module, so locate headers/libs manually.
 # ---------------------------------------------------------------------------
-if(BREW_EXECUTABLE)
-  execute_process(
-    COMMAND ${BREW_EXECUTABLE} --prefix gmp
-    OUTPUT_VARIABLE GMP_PREFIX
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-  )
-endif()
-if(NOT GMP_PREFIX)
-  set(GMP_PREFIX /opt/homebrew/opt/gmp)
-endif()
-
-find_path(GMP_INCLUDE_DIR gmp.h PATHS ${GMP_PREFIX}/include)
-find_library(GMP_LIBRARY gmp PATHS ${GMP_PREFIX}/lib)
-find_library(GMPXX_LIBRARY gmpxx PATHS ${GMP_PREFIX}/lib)
-
-if(NOT GMP_INCLUDE_DIR OR NOT GMP_LIBRARY OR NOT GMPXX_LIBRARY)
-  message(FATAL_ERROR "Could not find Homebrew gmp/gmpxx (looked in ${GMP_PREFIX}). Install it with `brew install gmp`.")
-endif()
-
 add_library(homebrew_gmp INTERFACE)
+
+if(APPLE)
+  if(NOT BREW_EXECUTABLE)
+    find_program(BREW_EXECUTABLE brew)
+  endif()
+  if(BREW_EXECUTABLE)
+    execute_process(
+      COMMAND ${BREW_EXECUTABLE} --prefix gmp
+      OUTPUT_VARIABLE GMP_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+  endif()
+  if(NOT GMP_PREFIX)
+    set(GMP_PREFIX /opt/homebrew/opt/gmp)
+  endif()
+
+  find_path(GMP_INCLUDE_DIR gmp.h PATHS ${GMP_PREFIX}/include)
+  find_library(GMP_LIBRARY gmp PATHS ${GMP_PREFIX}/lib)
+  find_library(GMPXX_LIBRARY gmpxx PATHS ${GMP_PREFIX}/lib)
+
+  if(NOT GMP_INCLUDE_DIR OR NOT GMP_LIBRARY OR NOT GMPXX_LIBRARY)
+    message(FATAL_ERROR "Could not find Homebrew gmp/gmpxx (looked in ${GMP_PREFIX}). Install it with `brew install gmp`.")
+  endif()
+else()
+  find_path(GMP_INCLUDE_DIR gmp.h)
+  find_library(GMP_LIBRARY gmp)
+  find_library(GMPXX_LIBRARY gmpxx)
+
+  if(NOT GMP_INCLUDE_DIR OR NOT GMP_LIBRARY OR NOT GMPXX_LIBRARY)
+    message(FATAL_ERROR "Could not find gmp/gmpxx. On Arch Linux install the `gmp` package.")
+  endif()
+endif()
+
 target_include_directories(homebrew_gmp INTERFACE ${GMP_INCLUDE_DIR})
 target_link_libraries(homebrew_gmp INTERFACE ${GMPXX_LIBRARY} ${GMP_LIBRARY})
 
