@@ -1,0 +1,294 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\newcommand{\Ext}{\operatorname{Ext}}
+\newcommand{\Hom}{\operatorname{Hom}}
+\newcommand{\im}{\operatorname{im}}
+\newcommand{\coker}{\operatorname{coker}}
+\newcommand{\id}{\mathrm{id}}
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\kk}{\Bbbk}
+\newcommand{\tcofree}[1]{\mathcal{F}(#1)}
+\theoremstyle{definition}
+\newtheorem{remark}{Remark}
+
+\title{Yoneda products for the $C$-motivic minimal resolution\\
+\large An implementation note for \texttt{yoneda.cpp}}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note explains the mathematics behind \texttt{yoneda.cpp}, a tool that computes
+Yoneda (composition) products on the $\Ext$ groups produced by Guozhen Wang's
+\texttt{MinimalResolution} infrastructure for the $C$-motivic Steenrod algebra.
+The existing code already computed multiplication by the filtration-$1$ classes
+$h_n$ (this is \texttt{mot\_mult}); we generalize this to multiplication by an
+\emph{arbitrary} class via chain-map lifting. I assume comfort with homological
+algebra (resolutions, $\Ext$, Yoneda products) but treat the motivic apparatus as
+a black box, calling out only the two features that actually change the algorithm:
+the ground ring is $\F_2[\tau]$ rather than a field, and the relevant modules can
+have $\tau$-torsion.
+\end{abstract}
+
+\section{The homological setup, with the motivic part boxed off}
+
+\paragraph{What is being resolved.}
+Fix the ground ring $\kk=\F_2[\tau]$, a graded polynomial ring on one generator
+$\tau$. (Black box: $\kk$ is the mod-$2$ motivic cohomology of a point; $\tau$ is a
+non-nilpotent element of homological degree $0$. Setting $\tau=1$ recovers the
+classical mod-$2$ story, and ``$\tau$-torsion'' is the genuinely new phenomenon.)
+There is a graded Hopf algebroid $(\kk,\A)$ -- the $C$-motivic dual Steenrod
+algebra -- and we work in the category of $\A$-comodules. The object of interest is
+\[
+  \Ext_{\A}^{s,*}(\kk,\kk),
+\]
+the $E_2$-page of the $C$-motivic Adams spectral sequence for the sphere. Each
+group is a graded $\kk=\F_2[\tau]$-module.
+
+\paragraph{Cofree comodules and the resolution.}
+For a graded $\kk$-module $V$ there is a \emph{cofree} (relatively injective)
+comodule $\tcofree{V}=\A\,\square\,V$, characterized by the adjunction
+\begin{equation}\label{eq:adjunction}
+  \Hom_{\A}\bigl(M,\tcofree{V}\bigr)\;\cong\;\Hom_{\kk}(M,V),
+\end{equation}
+\emph{natural in the comodule $M$}: a comodule map into $\tcofree V$ is the same
+thing as a $\kk$-linear map into the ``cogenerators'' $V$. Explicitly, a
+$\kk$-linear $\psi\colon M\to V$ corresponds to the comodule map
+\begin{equation}\label{eq:adjoint}
+  \widehat\psi(m)=(\id_\A\otimes\psi)\,\bigl(\psi_M(m)\bigr)\in \A\square V=\tcofree V,
+\end{equation}
+where $\psi_M\colon M\to \A\otimes M$ is the coaction. Formula~\eqref{eq:adjoint} is
+the computational workhorse below.
+
+\texttt{MinimalResolution} builds a \emph{minimal} resolution of the trivial
+comodule $\kk$ by cofree comodules,
+\begin{equation}\label{eq:resolution}
+  0\to \kk \xrightarrow{\ } F_0 \xrightarrow{d_0} F_1 \xrightarrow{d_1} F_2 \to\cdots,
+  \qquad F_s=\tcofree{V_s},
+\end{equation}
+i.e.\ an injective resolution in comodules. Write $G_s$ for the cogenerators of
+$F_s$ (a finite free $\kk$-module; in the code these are
+\texttt{F.generators}). Because the resolution is minimal, the induced differential
+on cogenerators vanishes \emph{modulo $\tau$}, and one has, up to the
+$\tau$-Bockstein bookkeeping discussed in \S\ref{sec:naming},
+\[
+  \Ext_{\A}^{s}(\kk,\kk)\;\cong\;G_s
+  \qquad(\text{a basis is the cogenerators of }F_s).
+\]
+A class is therefore named by a pair $\{s\text{-}a\}$: homological filtration $s$
+and the index $a$ of a cogenerator of $F_s$. For example $h_n=\{1\text{-}n\}$.
+
+\paragraph{How the resolution is stored.}
+Each step is realized by a short exact sequence of comodules
+\begin{equation}\label{eq:ses}
+  0\to X_s \xrightarrow{\ \iota_s\ } F_s \xrightarrow{\ q_s\ } X_{s+1}\to 0,
+  \qquad X_0=\kk,
+\end{equation}
+with the resolution differential $d_s=\iota_{s+1}\circ q_s\colon F_s\to F_{s+1}$.
+The comodules $X_s$ are the (co)syzygies. On disk one finds, for each $s$: the
+cofree comodule $F_s$ (file \texttt{mot\_gens}$s$) and the two $\kk$-linear maps
+$\iota_s,q_s$ (file \texttt{mot\_maps}$s$), all as sparse matrices over $\F_2[\tau]$.
+Every map in sight is an honest $\F_2[\tau]$-linear map between finitely generated
+free $\F_2[\tau]$-modules; the comodule structure enters only through the
+coactions, via \eqref{eq:adjoint}.
+
+\section{Yoneda products via chain-map lifting}
+
+\paragraph{The classical recipe.}
+A class $\beta\in\Ext^{s'}(\kk,\kk)$ is represented by a map $\kk\to\kk[s']$ in the
+derived category, equivalently (using \eqref{eq:resolution} as an injective
+resolution of the target) by a \emph{chain map}
+\[
+  f_\bullet\colon F_\bullet \longrightarrow F_{\bullet+s'},
+  \qquad d_{i+s'}\,f_i = f_{i+1}\,d_i,
+\]
+that lifts $\beta$ in degree $0$. The Yoneda product $\alpha\cdot\beta$, for
+$\alpha\in\Ext^{s}$, is obtained by applying $f_s$ to a cocycle representing
+$\alpha$ and reading the result in $\Ext^{s+s'}$. Two chain maps lifting $\beta$
+differ by a homotopy, so the induced map on cohomology -- the product -- is
+well defined. This is exactly the ``simplest approach'': build $f_\bullet$ by
+lifting, one filtration at a time.
+
+\paragraph{The base of the lift.}
+$F_0=\tcofree{\kk}$ is cofree on a single cogenerator $u$ in degree $0$. We set
+$f_0$ to be the comodule map sending $u$ to the cogenerator $b$ of $F_{s'}$ that
+\emph{is} $\beta=\{s'\text{-}b\}$. Via \eqref{eq:adjunction} this is encoded by the
+$\kk$-linear map $\psi_0\colon F_0\to G_{s'}$ with $\psi_0(u)=e_b$ and $\psi_0=0$ on
+the rest of a $\kk$-basis of $F_0$; then $f_0=\widehat{\psi_0}$ by
+\eqref{eq:adjoint}.
+
+\paragraph{The inductive step.}
+Assume $f_i\colon F_i\to F_{i+s'}$ is built. We must produce
+$f_{i+1}\colon F_{i+1}\to F_{i+s'+1}$ with $f_{i+1}d_i=d_{i+s'}f_i$. The key points:
+
+\begin{enumerate}[leftmargin=*]
+\item \textbf{$f_{i+1}$ is forced on the image of $d_i$.}
+  Since $d_i=\iota_{i+1}q_i$ and $\ker d_i=\ker q_i=\im\iota_i$, the chain-map
+  equation determines $f_{i+1}$ on $\im d_i=\im\iota_{i+1}$ by
+  \begin{equation}\label{eq:forced}
+    f_{i+1}\bigl(d_i(e)\bigr)=d_{i+s'}\bigl(f_i(e)\bigr),
+    \qquad e\in F_i,
+  \end{equation}
+  and this is consistent precisely because $\beta$ is a cocycle (the obstruction
+  $d_{i+s'}f_i|_{\im\iota_i}$ vanishes by the previous step).
+\item \textbf{Cogenerators live in that image.} The cogenerators of $F_{i+1}$ are
+  the leading terms of $\iota_{i+1}$, hence lie in $\im\iota_{i+1}=\im d_i$. So
+  \eqref{eq:forced} computes $f_{i+1}$ \emph{on cogenerators}, which by
+  \eqref{eq:adjoint} is all we need to reconstruct $f_{i+1}$ as a comodule map.
+\end{enumerate}
+Concretely, to compute $f_{i+1}$ on the cogenerator $w$ (a basis vector of
+$F_{i+1}$):
+\begin{equation}\label{eq:step}
+  u:=\iota_{i+1}^{-1}(w)\in X_{i+1},\quad
+  e:=q_i^{-1}(u)\in F_i,\quad
+  f_{i+1}(w):=d_{i+s'}\bigl(f_i(e)\bigr).
+\end{equation}
+Here $\iota_{i+1}^{-1}$ means the unique preimage under the \emph{injection}
+$\iota_{i+1}$ (it exists because $w\in\im\iota_{i+1}$), and $q_i^{-1}$ means
+\emph{any} preimage under the surjection $q_i$; then
+$d_i(e)=\iota_{i+1}(q_i(e))=\iota_{i+1}(u)=w$, so \eqref{eq:step} is just
+\eqref{eq:forced}. Finally we package $\{w\mapsto f_{i+1}(w)\}$ back into the full
+comodule map via the adjoint \eqref{eq:adjoint}; and $f_i(e)$ for the general
+element $e$ in \eqref{eq:step} is itself evaluated by \eqref{eq:adjoint} applied to
+$f_i=\widehat{\psi_i}$.
+
+\paragraph{Reading off the product.}
+This yields, on cogenerators, a $\kk$-linear ``multiplication matrix''
+$M_s\colon G_s\to G_{s+s'}$, $M_s=\bigl(\text{project to cogenerators}\bigr)\circ
+f_s$. For $\alpha=\{s\text{-}a\}$,
+\[
+  \alpha\cdot\beta \;=\; M_s\bigl(\text{cocycle of }\alpha\bigr)\ \in\ \Ext^{s+s'},
+\]
+re-expressed in the chosen basis of $\Ext^{s+s'}$ (\S\ref{sec:naming}). Specializing
+$\beta=h_n$ recovers exactly the construction in \texttt{mot\_mult} (there the
+chain map is the elementary one ``multiply by the algebra element $h_n$, then apply
+one differential''); our code reproduces those tables identically as a sanity check.
+
+\section{The one motivic complication: $\tau$-torsion and $\tau$-aware solving}
+
+Everything above is standard homological algebra. The single place where ``motivic''
+intervenes is in computing the two preimages in \eqref{eq:step}, i.e.\ in inverting
+\[
+  \iota_{i+1}\ \text{on its image}\qquad\text{and}\qquad q_i\ \text{(a surjection).}
+\]
+Over a field this is ordinary Gaussian elimination. Over $\kk=\F_2[\tau]$ it is not,
+and naive elimination fails.
+
+\paragraph{Why a field-style splitting does not exist.}
+$\F_2[\tau]$ is a PID, and a short exact sequence \eqref{eq:ses} of $\kk$-modules
+splits iff $X_{s+1}=\coker\iota_s$ is free, i.e.\ \emph{$\tau$-torsion-free}.
+$C$-motivic $\Ext$ is famous for having $\tau$-torsion, so the syzygies are in
+general not free, and $\iota_s$ has \emph{no global retraction}
+$F_s\to X_s$. (Empirically: in the $10$-cell test resolution, attempting a global
+$\tau^0$-pivoted retraction already fails at step $1$, on the row whose $\iota_1$-image
+is $\tau$-divisible.) This is exactly why the existing code never lifts chain maps
+over $\F_2[\tau]$ -- and the conceptual obstacle the present work had to get past.
+
+\paragraph{The resolution of the difficulty.}
+We never need a global retraction. In \eqref{eq:step} we only ever
+\begin{itemize}[leftmargin=*]
+\item invert $\iota_{i+1}$ on an element $w$ \emph{known to lie in $\im\iota_{i+1}$}
+  (a cogenerator); since $\iota_{i+1}$ is injective the preimage is unique and
+  \emph{always exists}; and
+\item invert $q_i$ on an arbitrary target element; since $q_i$ is surjective a
+  preimage \emph{always exists}.
+\end{itemize}
+Existence is guaranteed by exactness of \eqref{eq:resolution}; there is no torsion
+obstruction to \emph{solving} these particular systems. What is required is an
+elimination that works over the PID $\F_2[\tau]$.
+
+\paragraph{$\tau$-aware (Hermite) elimination.}
+The implementation builds, for each matrix $\iota_i$ and $q_i$, a row-echelon
+decomposition over $\F_2[\tau]$ in which the pivot at each position is kept with the
+\emph{minimal} $\tau$-power seen so far (a one-prime Hermite normal form; the only
+relevant prime is $\tau$). Reducing a target $w$ against these pivots either
+certifies $w\notin\im$ (a residual survives) or returns a preimage, with the
+elimination introducing $\tau^{k}$ factors $(k\ge 0)$ exactly when the system forces
+them. This is the class \texttt{TauEchelon} in the code; the same routine serves both
+$\iota^{-1}|_{\im}$ and the section of $q$.
+
+\paragraph{Where the $\tau$'s in products come from.}
+The $\tau$-powers produced by this elimination are precisely the source of
+$\tau$-multiples in Yoneda products. The cleanest example: classically
+$h_0^2h_2=h_1^3$, while our computation returns
+\[
+  h_1^3=\{3\text{-}1\},\qquad h_0^2h_2=\tau\cdot\{3\text{-}1\},
+\]
+i.e.\ the $C$-motivic refinement $\boxed{\,h_0^2h_2=\tau\,h_1^3\,}$, with the $\tau$
+appearing exactly as the Hermite elimination's $\tau^1$ factor.
+
+\section{Naming the answer: the $\tau$-Bockstein basis}\label{sec:naming}
+
+One subtlety remains in how $\Ext$ is presented. Because the minimal differential is
+$\tau$-divisible, the honest $\F_2[\tau]$-module $\Ext^{s}$ is not simply ``the
+cogenerators of $F_s$'': one must run the $\tau$-Bockstein spectral sequence to find
+the correct cycle representatives and the $\tau$-towers. This is already implemented
+(\texttt{make\_table}/\texttt{make\_cycle\_tables} in \texttt{tao\_bockstein.cpp}),
+producing for each filtration a distinguished set of cycle representatives
+(\texttt{cyc\_table}). Our product routine names its output in this basis, via the
+existing \texttt{find\_cycle}, so that the result is directly comparable with the
+$h_n$-multiplication tables and with the literature. The $\tau$-exponent printed as
+\texttt{t\^{}$k$} in front of a generator is the $\tau$-power attached by this naming.
+
+\section{Summary of the algorithm and verification}
+
+\paragraph{Algorithm (file \texttt{yoneda.cpp}).}
+\begin{enumerate}[leftmargin=*,itemsep=1pt]
+\item Load the resolution $F_\bullet$ and the maps $\iota_s,q_s$; build $\tau$-aware
+  solvers \texttt{invInj}$_s$ (invert $\iota_s$ on its image) and \texttt{secQut}$_s$
+  (section of $q_s$). A self-check verifies
+  $\iota_s^{-1}\iota_s=\id$ and $q_s\,q_s^{-1}=\id$ on the relevant spaces.
+\item Build the $\tau$-Bockstein cycle representatives (reusing
+  \texttt{make\_table}).
+\item For the chosen $\beta=\{s'\text{-}b\}$, lift the chain map $f_\bullet$ by
+  \eqref{eq:step}, using \eqref{eq:adjoint} to evaluate and to reassemble comodule
+  maps. Record the cogenerator-level matrices $M_s$.
+\item Output either a single product $\alpha\cdot\beta$, or the full table
+  $\beta\cdot(-)$ over all generators, named in the $\tau$-Bockstein basis.
+\end{enumerate}
+A technical point in step~3: when a product's internal degree exceeds the resolution
+range, \eqref{eq:adjoint} would place terms outside the relevant cofree summand;
+these are degree-overflow artifacts and are clipped to the summand, which is correct
+within range (nothing valid is dropped) and matches \texttt{mot\_mult}'s degree
+guard.
+
+\paragraph{Verification.}
+On a test resolution (\texttt{md=10}, length $6$):
+\begin{itemize}[leftmargin=*,itemsep=1pt]
+\item The solver self-check passes at every filtration.
+\item Taking $\beta=h_n$ reproduces \texttt{mot\_mult}'s tables
+  $\{n=0,1,2,3\}$ \emph{exactly}, including $\tau$-multiples such as
+  $h_0\cdot\{2\text{-}2\}=\tau\{3\text{-}1\}$ and $h_0h_1=0$.
+\item Genuinely higher-filtration (input) products agree with known relations:
+  $h_1^2=\{2\text{-}1\}$, $h_1^3=\{3\text{-}1\}$, and
+  $h_0^2h_2=\tau\{3\text{-}1\}=\tau h_1^3$.
+\item Single-pair queries agree with the corresponding entries of the full tables.
+\end{itemize}
+
+\paragraph{Usage.}
+After the bootstrap \texttt{e2p $md$;\ motTab $md$;\ mr\_ex $md$ $L_{\mathrm{ex}}$;\
+mr\_mot $md$ $L$} (note: \texttt{motTab} is required), run
+\begin{center}
+\begin{tabular}{ll}
+\texttt{yoneda $md$ $L$} & solver self-check\\
+\texttt{yoneda $md$ $L$ $b_s$ $b_b$} & full table for $\beta=\{b_s\text{-}b_b\}$\\
+\texttt{yoneda $md$ $L$ $a_s$ $a_a$ $b_s$ $b_b$} & single product $\{a_s\text{-}a_a\}\cdot\{b_s\text{-}b_b\}$\\
+\end{tabular}
+\end{center}
+where $md$ is half the maximal topological degree and $L$ the resolution length.
+
+\begin{remark}[scope]
+Only Yoneda products are implemented. Massey products are a natural sequel: the
+$\tau$-aware solving developed here already produces the null-homotopies of
+vanishing products that a Massey-product implementation would consume; what remains
+is the indeterminacy bookkeeping.
+\end{remark}
+
+\end{document}
