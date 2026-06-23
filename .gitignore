@@ -14,3 +14,10 @@
 /mr_st
 /tauBoc
 /yoneda
+
+# OS / editor cruft
+.DS_Store
+
+# Yoneda products writeup (generated/working files, not checked in)
+/yoneda_products.pdf
+/yoneda_products.tex

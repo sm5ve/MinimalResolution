@@ -28,16 +28,28 @@ struct ResStep {
 };
 
 //load one cofree comodule from the per-step generators file <pre>mot_gens{i}
+static void missing_step_file(const string &path, int i){
+	std::cerr << "cannot open " << path << "\n"
+	             "  This file is produced by mr_mot. Either mr_mot was never run for this\n"
+	             "  <md>, or it was run with a resolution length <= " << i << " (this program\n"
+	             "  needs per-step data up through step " << i << "). Bootstrap order:\n"
+	             "      e2p <md>  ->  motTab <md>  ->  mr_ex <md> <len_ex>  ->  mr_mot <md> <len>\n"
+	             "  with <len> >= " << i << ", and <md> matching the <md> passed to this program.\n";
+	std::exit(1);
+}
+
 static void load_F(const string &pre, int i, FreeMotCoMod &F){
-	std::fstream f(pre + "mot_gens" + std::to_string(i), std::ios::in | std::ios::binary);
-	if(!f.is_open()){ std::cerr << "cannot open mot_gens" << i << "\n"; std::exit(1); }
+	string path = pre + "mot_gens" + std::to_string(i);
+	std::fstream f(path, std::ios::in | std::ios::binary);
+	if(!f.is_open()) missing_step_file(path, i);
 	F.load(f);
 }
 
 //load inj_i and qut_i from <pre>mot_maps{i}
 static void load_maps(const string &pre, int i, matrix_mem<tauPoly> &inj, matrix_mem<tauPoly> &qut){
-	std::fstream f(pre + "mot_maps" + std::to_string(i), std::ios::in | std::ios::binary);
-	if(!f.is_open()){ std::cerr << "cannot open mot_maps" << i << "\n"; std::exit(1); }
+	string path = pre + "mot_maps" + std::to_string(i);
+	std::fstream f(path, std::ios::in | std::ios::binary);
+	if(!f.is_open()) missing_step_file(path, i);
 	inj.clear(); qut.clear();
 	inj.load(f);
 	qut.load(f);
