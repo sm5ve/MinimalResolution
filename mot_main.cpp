@@ -52,7 +52,19 @@ int main(int agrc, char **argv){
 	
 	//load the generators
 	MOP.load_gens(gens, director + "gens_data_ctau");
-	
+
+	//pre_resolution_modeled indexes gens[0..resolution_length+1]. mr_ex populates
+	//gens with (lenEx+1) entries (hopf_algebroid/5.h: gens.resize(resolution_length+1)),
+	//so this needs lenEx+1 >= resolution_length+2, i.e. lenEx > resolution_length.
+	//Violating this used to walk off the end of `gens` (observed as a segfault).
+	if((int)gens.size() < resolution_length + 2){
+		std::cerr << "error: requested resolution length " << resolution_length
+		          << " exceeds the classical (mr_ex) resolution available for max_deg "
+		          << max_deg << " (mr_ex was run with length " << (int)gens.size() - 1
+		          << "). Re-run mr_ex with a length >= " << (resolution_length + 1) << ".\n";
+		return 1;
+	}
+
 	//construct the pre-resolution
 	MOP.pre_resolution_modeled(comod, director + "mot_maps", director + "mot_gens", resolution_length, director+"extables", &ctable, gens, tfm, &inj, &qut, &indj, &new_map, director + "back");
 	
