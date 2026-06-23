@@ -168,8 +168,11 @@ string Steenrod_Op::output_resolution(std::iostream &gens_file, int length){
 	
 	result += "\n";
 	
-	std::vector<std::vector<int>> dims(maxDeg, std::vector<int>(length));
-	
+	//generator degrees d can equal maxDeg, so dims needs maxDeg+1 rows (0..maxDeg);
+	//with just `maxDeg` rows this is a one-row overflow, guaranteed to crash when
+	//maxDeg==0 and a latent heap overflow otherwise.
+	std::vector<std::vector<int>> dims(maxDeg+1, std::vector<int>(length));
+
 	for(int i=0; i<length; ++i)
 		for(auto d: gens[i].generators.degree)
 			dims[d-i][i]++;
