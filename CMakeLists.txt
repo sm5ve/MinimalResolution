@@ -202,6 +202,14 @@ set_target_properties(mot_mult PROPERTIES CXX_STANDARD 11)
 target_link_libraries(mot_mult PRIVATE homebrew_omp)
 list(APPEND EXPONENT_WIDTH_TARGETS mot_mult)
 
+# yoneda products (-std=c++11)
+add_executable(yoneda
+  yoneda.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp
+)
+set_target_properties(yoneda PROPERTIES CXX_STANDARD 11)
+target_link_libraries(yoneda PRIVATE homebrew_omp)
+list(APPEND EXPONENT_WIDTH_TARGETS yoneda)
+
 # tauboc_compile -> tauBoc (-std=c++11)
 add_executable(tauBoc
   taubocmain.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp
