@@ -1,5 +1,6 @@
 #include "mot_steenrod.h"
 #include <cassert>
+#include <cstdlib>
 
 //if x is zero
 inline bool tauOper::isZero(tauPoly const &x) { return x==internal_zero; }
@@ -193,10 +194,19 @@ void MotSteenrodOp::generate_cofree_coaction(string coaction_filename, string ex
 	//transform the data of coactions
 	std::fstream coaction_file(coaction_filename, std::ios::in | std::ios::binary);
 	std::fstream expo_file(expo_filename, std::ios::in | std::ios::binary);
+	if(!coaction_file.is_open() || !expo_file.is_open()){
+		std::cerr << "error: cannot open " << coaction_filename << " or " << expo_filename
+		          << " (run motTab with this max_deg first)\n" << std::flush;
+		std::exit(1);
+	}
 	int32_t nums;
 	expo_file.read((char*)&nums, 4);
-	if((unsigned)nums != mon_array.size())
-		std::cerr << "datas not compatible!" << std::flush;
+	if((unsigned)nums != mon_array.size()){
+		std::cerr << "error: " << expo_filename << " is not compatible with the loaded monomial array "
+		          << "(" << nums << " vs " << mon_array.size() << "); "
+		          << "did you mix max_deg values between e2p/motTab and this run?\n" << std::flush;
+		std::exit(1);
+	}
 	for(int j=0; j<nums; j++){
 		mStmSt coactor = mStmSt_oper.load(coaction_file);
 		exponentArry eps = load_expArry(expo_file);
@@ -237,6 +247,11 @@ motSteenrod MotSteenrodOp::hi(int i){
 //initialize the list of monoials
 void MotSteenrodOp::init_mon_array(string filename){
 	std::fstream mons_file(filename, std::ios::in | std::ios::binary);
+	if(!mons_file.is_open()){
+		std::cerr << "error: cannot open " << filename
+		          << " (run e2p with this max_deg first)\n" << std::flush;
+		std::exit(1);
+	}
 	//get the number of monoials
 	int32_t nums;
 	mons_file.read((char*)&nums, 4);
