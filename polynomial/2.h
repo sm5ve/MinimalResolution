@@ -43,8 +43,19 @@ public:
 	poly<exponent_type,base_ring> monomial(exponent_type e);
 };
 
-//type of the exponent
+//type of the exponent. Width is selected at configure time via the
+//WIDE_EXPONENT CMake option (see CMakeLists.txt), which defines
+//EXPONENT_WIDTH to either 32 (default) or 64 for every target that
+//packs/unpacks exponents (anything compiling exponents.cpp or
+//ex_exponents.cpp).
+#include <cstdint>
+#if EXPONENT_WIDTH == 64
+typedef uint64_t exponent;
+#elif EXPONENT_WIDTH == 32
 typedef uint32_t exponent;
+#else
+#error "EXPONENT_WIDTH must be defined to 32 or 64 (set via CMake WIDE_EXPONENT option)"
+#endif
 
 //type of ordinary poly
 template<typename base_ring>

@@ -1,4 +1,5 @@
 #include "mot_steenrod.h"
+#include <cassert>
 
 //if x is zero
 inline bool tauOper::isZero(tauPoly const &x) { return x==internal_zero; }
@@ -227,8 +228,10 @@ vectors<matrix_index, motSteenrod> MotSteenrodOp::delta(matrix_index n){
 	return cofree_coaction->find(n); }
    
 //the Hopf classes
-motSteenrod MotSteenrodOp::hi(int i){ 
-	return motSteenrod_oper.monomial(1 << (i), - (1 << (i-1))); }
+motSteenrod MotSteenrodOp::hi(int i){
+	//xi_1's exponent is packed mod xnMaxExpo[1]; beyond this it silently aliases to a wrong class
+	assert((unsigned)(1 << i) < xnMaxExpo[1]);
+	return motSteenrod_oper.monomial(1 << i, -((1 << i) >> 1)); }
 
     
 //initialize the list of monoials

@@ -1,0 +1,15 @@
+/build/
+/build-wide/
+
+# compiled binaries (CMake targets / shell-script builds) at repo root
+/BPtab
+/e2p
+/kos
+/motTab
+/mot_comb
+/mot_mult
+/mr_BP
+/mr_ex
+/mr_mot
+/mr_st
+/tauBoc

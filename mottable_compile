@@ -1,1 +1,1 @@
-g++ -std=c++11 -O2 exponents.cpp mot_steenrod.cpp mot_coactions.cpp mon_index.cpp -omotTab -I./ -fopenmp -Wall -Wfatal-errors
+g++ -std=c++11 -O2 exponents.cpp mot_steenrod.cpp mot_coactions.cpp mon_index.cpp -omotTab -I./ -DEXPONENT_WIDTH=32 -fopenmp -Wall -Wfatal-errors

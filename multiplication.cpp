@@ -6,7 +6,7 @@ void multiplication::make_eta_R_multiplier(BPBP const& x,matrix<BP>* result, int
 	std::cout << "making multiplier!" << std::flush;
 	std::function<vectors<matrix_index, BP>(int)> rows = [this,&x,deg](int i){
 		//filter out those elements beyond the scope of the data
-		if(i > (int)BPoper->mon_index.ranksBelow[BPoper->mon_index.max_degree-deg])
+		if(BPoper->mon_index.max_degree < deg or i > (int)BPoper->mon_index.ranksBelow[BPoper->mon_index.max_degree-deg])
 			return BPoper->BPMod_opers.zero();
 		//construct v^e
 		auto v0 = BPoper->singleton(BPoper->mon_index.mon_array[i]);

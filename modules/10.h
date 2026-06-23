@@ -1,4 +1,5 @@
 //class for free graded modules over a ring
+#include <cstdint>
 template<typename degree_type>
 class modules{
 public:

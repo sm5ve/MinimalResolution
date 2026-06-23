@@ -31,14 +31,14 @@ public:
 	
 	//read from a given position
 	template<typename return_type>
-	return_type read(std::function<return_type(std::iostream&)> reader, std::ios::streampos pos){
+	return_type read(std::function<return_type(std::iostream&)> reader, std::streampos pos){
 		std::lock_guard<std::mutex> lk(locker);
 		steam->seekg(pos);
 		return reader(*steam);
 	}
 	
 	//write and return the position
-	std::ios::streampos write(std::function<void(std::iostream&)> writer);
+	std::streampos write(std::function<void(std::iostream&)> writer);
 };
 
 //file streams

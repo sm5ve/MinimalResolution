@@ -22,7 +22,7 @@ public:
 			ind=i; coeficient=std::move(c); }
 				
 		//comparison operator compares the index of the terms
-		bool operator<(const term &y) { return ind<y.ind; }	
+		bool operator<(const term &y) const { return ind<y.ind; }
 	};
 	
 	//default constructor

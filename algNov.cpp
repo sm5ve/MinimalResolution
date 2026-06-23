@@ -183,7 +183,7 @@ int algNov_table::degree(cycle_name cyc){
 void  algNov_tables::table_of_complex(BPComplex& Comp, int pric){
 	//initialize primitive data
 	tables[0]->Pcyc = &Comp.Prims[0];
-	for(unsigned i=0; i<Comp.size(); ++i){
+	for(unsigned i=1; i<Comp.size(); ++i){
 		tables[i]->Ptag = &Comp.Prims[i-1];
 		tables[i]->Pcyc = &Comp.Prims[i];
 	}

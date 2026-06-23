@@ -69,7 +69,7 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 	for(int i=0; i<=resolution_length; ++i) {
 		inj->clear();
 		qut->clear();
-		
+
 		//open the file for the maps
 		std::fstream maps_file(filename_maps + std::to_string(i), std::ios::out | std::fstream::binary);
 		

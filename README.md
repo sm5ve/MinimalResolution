@@ -6,6 +6,18 @@ The codes can be compiled with GCC. The GNU Multiple Precision Arithmetic Librar
 
 ******************************************************************************************************
 
+Alternatively, on macOS (with Homebrew `libomp` and `gmp` installed), all ten executables
+can be built in one step via the included CMakeLists.txt:
+
+    cmake -B build
+    cmake --build build
+
+The resulting binaries (mr_st, BPtab, mr_BP, mr_ex, mr_mot, mot_comb, motTab, kos, mot_mult,
+tauBoc, e2p) are placed in build/. The original shell scripts below still work standalone and
+are kept for reference/compatibility.
+
+******************************************************************************************************
+
 To compile, run the following batch files:
 
 sh st_compiling

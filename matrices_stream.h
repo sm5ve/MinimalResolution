@@ -9,7 +9,7 @@ template<typename ring>
 class matrix_stream : public matrix<ring>{
 	//the data for a matrix, consisting of a stream and an array of positions
 	con_streams *datas;
-	std::vector<std::ios::streampos> datapos;
+	std::vector<std::streampos> datapos;
 public:
 	//the constructor
 	matrix_stream(con_streams *ds){

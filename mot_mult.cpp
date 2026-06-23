@@ -40,9 +40,13 @@ int main(int agrc, char **argv){
 		ngf << output(cycles_table[i], i);
 	}
 	
-	//compute the h0 multiplication
-	multiplication_table(MOP.hi(0), 1, director + "mot_gens", director + "mot_res", director + "h0.txt", resolution_length, MOP, cycles_table); 
-	multiplication_table(MOP.hi(1), 2, director + "mot_gens", director + "mot_res", director + "h1.txt", resolution_length, MOP, cycles_table); 
-	multiplication_table(MOP.hi(2), 4, director + "mot_gens", director + "mot_res", director + "h2.txt", resolution_length, MOP, cycles_table); 
-	multiplication_table(MOP.hi(3), 8, director + "mot_gens", director + "mot_res", director + "h3.txt", resolution_length, MOP, cycles_table); 
+	//compute the h_n multiplication for every n whose degree 2^n fits both
+	//within the computed resolution (max_deg) and within xi_1's packed
+	//exponent range (xnMaxExpo[1]), beyond which h_n would alias to a
+	//lower class instead of failing cleanly
+	int max_n = 0;
+	while((1 << (max_n+1)) <= max_deg && (unsigned)(1 << (max_n+1)) < xnMaxExpo[1])
+		++max_n;
+	for(int n=0; n<=max_n; ++n)
+		multiplication_table(MOP.hi(n), 1<<n, director + "mot_gens", director + "mot_res", director + "h" + std::to_string(n) + ".txt", resolution_length, MOP, cycles_table);
 }

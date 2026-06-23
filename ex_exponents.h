@@ -1,6 +1,8 @@
 //ex_exponents.h
 //exponents for the ring F[x_1,x_2,\dots]\otimes\Lambda(\xi_1,\xi_2,\dots)
-//the maximal valid degree is 253
+//with the default (EXPONENT_WIDTH=32) build, the maximal valid degree is
+//253; building with -DWIDE_EXPONENT=ON raises this substantially (see
+//xnMaxExpo[1] in ex_exponents.cpp)
 #pragma once
 #include"polynomial.h"
 #include<array>

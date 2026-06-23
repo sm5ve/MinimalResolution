@@ -135,7 +135,7 @@ inline Qp Qp_Op::load(std::iostream& reader){
 }
 
 //the characteristic of the residue field for Q2
-inline int Q2_Op::prime(){ 
+int Q2_Op::prime(){
 	return 2;}
 
 //the constructor

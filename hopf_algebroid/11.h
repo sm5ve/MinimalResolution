@@ -2,6 +2,7 @@
 template<typename ring, typename algebroid>
 void Hopf_Algebroid<ring,algebroid>::make_multiplication_table(algebroid const &x, int deg_x, matrix<ring> *result) {
 	result->clear();
+	if(deg_x > maxDeg) return;
 	int n_entries = ranksBelowDeg(maxDeg-deg_x);
 	for(int i=0; i<n_entries; ++i) {
 		//get the i-th element

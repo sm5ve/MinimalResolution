@@ -5,7 +5,7 @@
 //compute the map to the co-generators F->cogen(F)
 template<typename ring, typename algebroid, typename  degree_type>
 vectors<matrix_index,ring> cogens_map(vectors<matrix_index,ring> &v, cofree_comodule<algebroid, degree_type> &F, ModuleOp<matrix_index, ring> &Module_oper){
-	std::function<matrix_index(matrix_index)> rule = [](matrix_index i){
+	std::function<matrix_index(matrix_index)> rule = [&F](matrix_index i){
 		matrix_index h = F.find_index(i);
 		if(h==cofree_comodule<algebroid, degree_type>::invalid_pos) 
 			return ModuleOp<matrix_index, ring>::invalid;
@@ -16,7 +16,7 @@ vectors<matrix_index,ring> cogens_map(vectors<matrix_index,ring> &v, cofree_como
 
 //compute the adjoind map of a map to cogenerators, return the i-th row
 template<typename ring, typename algebroid, typename  degree_type>
-vectors<matrix_index,ring> adjoint(matrix<ring> *X, std::vector<uint32_t> const& pos, int i, Hopf_Algebroid<ring, algebroid> &HA_oper){
+vectors<matrix_index,ring> adjoint(matrix<ring> *X, cofree_comodule<algebroid, degree_type> &F, std::vector<uint32_t> const& pos, int i, Hopf_Algebroid<ring, algebroid> &HA_oper){
 	// psi(e_i)
 	auto ci = F.coaction(i);
 	// (1\otimes X) (psi (e_i))
@@ -47,17 +47,17 @@ void lift_resolvor(cofree_comodule<algebroid, degree_type> &F2, matrix<ring> &in
 		auto pb = inj2.maps_to(pva);
 		//find the map to the cogenerators
 		return cogens_map(pb, F2, HA_oper);
-	}
+	};
 	lg->construct(spliter1.rank, cogens_lifting);
-	
+
 	if(cofree_map!=NULL){
-		std::function<vectors<matrix_index, ring>(int i)> F1F2 = []{
+		std::function<vectors<matrix_index, ring>(int i)> F1F2 = [lg, &F2, &HA_oper](int i){
 			return adjoint(lg, F2.position_of_gens, i, HA_oper); };
 		cofree_map->construct(lg->rank, F1F2);
 	}
 	
 	//compute the i-th term of the map F1->M2
-	std::function<vectors<matrix_index, ring>(int i)> F1M2 = [&cogens_map, &qut2, &inv_ind1](int i){
+	std::function<vectors<matrix_index, ring>(int i)> F1M2 = [lg, &F2, &HA_oper, &qut2, &inv_ind1](int i){
 		auto F1F2 = adjoint(lg, F2.position_of_gens, inv_ind1[i], HA_oper);
 		return qut2.maps_to(F1F2); 
 	};
@@ -67,8 +67,8 @@ void lift_resolvor(cofree_comodule<algebroid, degree_type> &F2, matrix<ring> &in
 }
 
 //lift a map between resolutions
-template<typename ring, typename algebroid>
-void resolution_lift(int resolution_length, matrix<ring> *current_map, string splitfile1, string gensfile2, string mapsfile2, std::vector<std::vector<matrix_index>> &inv_ind1, matrix<ring> *next_map, Hopf_Algebroid<ring,algebroid> &HA_oper, string liftedfile, matrix<ring> *inj2, matrix<ring> *qut2, matrix<ring> *spliter1, matrix<ring> *liftedmap, std::iostream *cofree_map_file = NULL, matrix<ring> *cofree_map){
+template<typename ring, typename algebroid, typename degree_type>
+void resolution_lift(int resolution_length, matrix<ring> *current_map, string splitfile1, string gensfile2, string mapsfile2, std::vector<std::vector<matrix_index>> &inv_ind1, matrix<ring> *next_map, Hopf_Algebroid<ring,algebroid> &HA_oper, string liftedfile, matrix<ring> *inj2, matrix<ring> *qut2, matrix<ring> *spliter1, matrix<ring> *liftedmap, matrix<ring> *cofree_map, std::iostream *cofree_map_file = NULL){
 	//generators for the resolution of the second comodule
 	std::fstream gens_file2(gensfile2, std::ios::in | std::ios::binary);
 	//maps in the resolution of the second comodule
@@ -85,13 +85,13 @@ void resolution_lift(int resolution_length, matrix<ring> *current_map, string sp
 		
 		//read the generators for second resolution
 		cofree_comodule<algebroid,degree_type> F2;
-		F2.load(gens_file);
-		
+		F2.load(gens_file2);
+
 		//load the maps
 		inj2->clear();
 		qut2->clear();
-		inj2->load(maps_file);
-		qut2->load(maps_file);
+		inj2->load(maps_file2);
+		qut2->load(maps_file2);
 		
 		//load the spliting map for the first resolution
 		spliter1->load(split_file1);
@@ -112,6 +112,6 @@ void resolution_lift(int resolution_length, matrix<ring> *current_map, string sp
 //make the quotient index for an injective map X->F, with data from a table
 template<typename ring>
 std::vector<matrix_index> make_quot_index(curtis_table<ring> *table, int Frank, int Xrank){
-	auto inj_ind = table->cycle_matrix(Xrank());
+	auto inj_ind = table->cycle_matrix(Xrank);
 	auto quot_inds = matrix<ring>::quot_index(inj_ind, Frank);
 }

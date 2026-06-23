@@ -1,1 +1,1 @@
-g++ -std=c++11 -O2 mot_mult.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp -fopenmp -I./ -omot_mult
+g++ -std=c++11 -O2 mot_mult.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp -fopenmp -I./ -DEXPONENT_WIDTH=32 -omot_mult

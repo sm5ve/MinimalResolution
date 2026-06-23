@@ -3,6 +3,7 @@
 #include<vector>
 #include<gmpxx.h>
 #include"algebra.h"
+#include <cstdint>
 
 //the type of the numerators
 typedef mpz_class num_type;

@@ -1,20 +1,26 @@
 //ex_exponents.cpp
 #include "ex_exponents.h"
 
+//width of the polynomial part; the remaining maxVar (=7) high bits hold the
+//per-generator exterior flags. Parameterized so the same bit-packing scheme
+//works at 32 or 64 bits (POLY_BITS = 25 when EXPONENT_WIDTH = 32, matching
+//the original hardcoded constants exactly).
+constexpr int POLY_BITS = EXPONENT_WIDTH - maxVar;
+
 //add two exponents
 exponent add(exponent a, exponent b){
-	//the polynomial part = (a+b) mod 2^25
-	unsigned poly_part = (a+b) & ((1 << 25) - 1);
-	//the exterior part = (a xor b) & (- 2^25)
-	unsigned ex_part = (a^b) & (-(1 << 25));
-	
+	//the polynomial part = (a+b) mod 2^POLY_BITS
+	exponent poly_part = (a+b) & ((exponent(1) << POLY_BITS) - 1);
+	//the exterior part = (a xor b) & (- 2^POLY_BITS)
+	exponent ex_part = (a^b) & (-(exponent(1) << POLY_BITS));
+
 	return poly_part + ex_part;
 }
 
 //check if two exponents have common exterior variable
 bool common_ex(exponent a, exponent b){
-	a = a & (-(1 << 25));
-	b = b & (-(1 << 25));
+	a = a & (-(exponent(1) << POLY_BITS));
+	b = b & (-(exponent(1) << POLY_BITS));
 	return a & b;
 }
 
@@ -37,7 +43,7 @@ std::vector<exponent> get_pos(exponent lis[], int length){
 std::vector<exponent> get_ex(int length){
 	std::vector<exponent> res(length+1,1);
 	for(int i=1; i<length; ++i)
-		res[i] = 1 << (24+i);
+		res[i] = exponent(1) << (POLY_BITS-1+i);
 	return res;
 }
 
@@ -52,8 +58,16 @@ int znDegs[maxVar+1] = {0,1,3,7,15,31,63,127};
 int znDeg(int n){
 	return znDegs[n]; };
 
-//the maximal value of the n-th exponent
+//the maximal value of the n-th exponent (x_1 = xi_1^2's budget). Generators
+//2..7 unchanged between configurations; only index 1 grows under
+//EXPONENT_WIDTH=64. Poly-part budget is 2^POLY_BITS = 2^57; with generators
+//2..7 fixed (product 110,295), the hard ceiling for xnMaxExpo[1] is
+//~2^40.25 -- 2^34 leaves large headroom.
+#if EXPONENT_WIDTH == 64
+exponent xnMaxExpo[maxVar+1] = {0, (exponent(1) << 34), 43, 19, 9, 5, 3, 1};
+#else
 exponent xnMaxExpo[maxVar+1] = {0, 128, 43, 19, 9, 5, 3, 1};
+#endif
 
 //the maximal total degree
 exponent totalMax = multiply_all(xnMaxExpo,1,maxVar+1);
@@ -64,8 +78,8 @@ std::vector<exponent> xnPos = get_pos(xnMaxExpo,maxVar+1);
 std::vector<exponent> znPos = get_ex(maxVar+1);
 
 //the value of the exponent on the n-th variable
-int xnVal(exponent e, int n){ 
-	e = e & ((1 << 25) - 1);
+int xnVal(exponent e, int n){
+	e = e & ((exponent(1) << POLY_BITS) - 1);
 	return (e/xnPos[n-1]) % xnMaxExpo[n]; }
 	
 //the exponent for zn in e

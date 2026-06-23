@@ -21,8 +21,17 @@ int xnDegs[maxVar+1] = {0,1,3,7,15,31,63,127};
 int xnDeg(int n){ 
 	return xnDegs[n]; }
 
-//the maximal value of the n-th exponent
+//the maximal value of the n-th exponent. Generators 2..7's budgets are
+//unchanged between the 32- and 64-bit configurations; only xi_1's budget
+//(index 1) grows under EXPONENT_WIDTH=64 to consume the extra width.
+//Verified safe: prod(xnMaxExpo[2..7]) = 7,217,775, so the largest
+//power-of-two xnMaxExpo[1] keeping totalMax inside uint64_t is 2^41
+//(~2.2e12), comfortably below the ~2^41.2 hard limit.
+#if EXPONENT_WIDTH == 64
+exponent xnMaxExpo[maxVar+1] = {0, (exponent(1) << 41), 85, 37, 17, 9, 5, 3};
+#else
 exponent xnMaxExpo[maxVar+1] = {0, 255, 85, 37, 17, 9, 5, 3};
+#endif
 
 //the maximal total degree
 exponent totalMax = multiply_all(xnMaxExpo,1,maxVar+1);

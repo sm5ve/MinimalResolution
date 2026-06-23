@@ -17,7 +17,7 @@ con_streams::~con_streams(){
 }
 
 //write and return the position
-std::ios::streampos con_streams::write(std::function<void(std::iostream&)> writer){
+std::streampos con_streams::write(std::function<void(std::iostream&)> writer){
 	std::lock_guard<std::mutex> lk(locker);
 	auto pos = steam->tellp();
 	writer(*steam);

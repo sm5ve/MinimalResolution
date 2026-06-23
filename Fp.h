@@ -1,5 +1,6 @@
 //Fp.h
 #pragma once
+#include <sys/types.h>
 #include "algebra.h"
 
 //an element in Fp is stored in a unsigned 16-bit integer

@@ -10,7 +10,7 @@
 template<typename ring>
 class curtisTable_stream : public curtis_table<ring>{
 	//the index of the entries
-	std::map<matrix_index,std::ios::streampos> data_index;
+	std::map<matrix_index,std::streampos> data_index;
 	//the cached table
 	curtis_table_mem<ring> cached;
 	//stream of data
@@ -37,7 +37,7 @@ public:
 	typename curtis_table<ring>::entry search(matrix_index n){
 		if(cached.is_member(n))
 			return cached.search(n);
-		std::ios::streampos pos = data_index[n];
+		std::streampos pos = data_index[n];
 		std::function<typename curtis_table<ring>::entry(std::iostream&)> reader = [this](std::iostream &ins){
 			return this->load_entry(ins); };
 		return stream_data.read(reader, pos);
@@ -74,7 +74,7 @@ public:
 	void run_through(std::function<void(const typename curtis_table<ring>::entry&)> action){
 		flush();
 		for(auto tm: data_index){
-			std::ios::streampos pos = tm.second;
+			std::streampos pos = tm.second;
 			std::function<typename curtis_table<ring>::entry(std::iostream&)> reader = [this](std::iostream &ins){
 				return this->load_entry(ins); };
 			auto et = stream_data.read(reader, pos);

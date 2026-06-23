@@ -44,8 +44,15 @@ public:
 		//the values of the powers of the varaibles
 		std::vector<std::vector<ring>> monos(maxVar+1);
 		for(int i=1; i<=maxVar; ++i){
-			//compute the i-th variables
-			monos[i].resize(xnMaxExpo[i]);
+			//compute the i-th variables. Only indices 0..max_degree/xnDeg(i)
+			//are ever written or read below, so cap the allocation at that
+			//bound rather than at xnMaxExpo[i] -- the latter is the packed-
+			//exponent encoding budget, which can be astronomically larger
+			//than max_degree under a wide EXPONENT_WIDTH and would otherwise
+			//blow up this allocation (std::bad_alloc) for no reason.
+			exponent capacity = (exponent)(max_degree/xnDeg(i)) + 1;
+			if(capacity > xnMaxExpo[i]) capacity = xnMaxExpo[i];
+			monos[i].resize(capacity);
 			monos[i][0] = ringop->unit(1);
 			if(xnDeg(i)>max_degree) continue;
 			ring val = values(i);
