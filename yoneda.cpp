@@ -174,10 +174,46 @@ static string fmt(int nm, const TVec &v){
 }
 
 //----------------------------------------------------------------------------
+static void print_usage(const char *prog){
+	std::cerr <<
+		"Yoneda (composition) products on the C-motivic minimal resolution.\n"
+		"\n"
+		"Bootstrap (run once per <md>, in this order -- motTab is easy to forget,\n"
+		"and mr_ex's length must be strictly greater than the length given to\n"
+		"mr_mot/this program):\n"
+		"    e2p <md>\n"
+		"    motTab <md>\n"
+		"    mr_ex <md> <len_ex>\n"
+		"    mr_mot <md> <len>\n"
+		"\n"
+		"Usage:\n"
+		"  " << prog << " <md> <len>\n"
+		"      Solver self-check. Verifies that the tau-aware solvers invert\n"
+		"      iota_i (injection) and qut_i (quotient map) correctly at every\n"
+		"      step of the resolution loaded for max_deg=<md>, length=<len>.\n"
+		"      Prints \"SOLVER CHECK: success\", or reports the failing step/row\n"
+		"      and exits nonzero. No products are computed in this mode.\n"
+		"\n"
+		"  " << prog << " <md> <len> <bs> <bb>\n"
+		"      Table mode. Let beta be the cogenerator {bs-bb} (filtration bs,\n"
+		"      generator index bb of F_bs), i.e. Ext class {bs-bb}. Lifts the\n"
+		"      chain map representing beta and prints alpha*beta, named in the\n"
+		"      tau-Bockstein basis, for every generator alpha={s-a} with\n"
+		"      s+bs <= <len> -- i.e. the full multiplication-by-beta table.\n"
+		"\n"
+		"  " << prog << " <md> <len> <as> <aa> <bs> <bb>\n"
+		"      Single product mode. Prints just alpha*beta for the two specific\n"
+		"      classes alpha={as-aa}, beta={bs-bb} (same lift as table mode,\n"
+		"      but only the one entry is reported).\n"
+		"\n"
+		"<md> is HALF the maximal topological degree; <len> is the resolution\n"
+		"length, and must not exceed the length mr_mot was run with for this <md>.\n";
+}
+
 int main(int argc, char **argv){
-	if(argc < 3){
-		std::cerr << "usage: " << argv[0] << " <max_deg> <resolution_length>\n";
-		return 1;
+	if(argc < 3 || string(argv[1]) == "-h" || string(argv[1]) == "--help"){
+		print_usage(argv[0]);
+		return (argc < 3) ? 1 : 0;
 	}
 	int max_deg = std::atoi(argv[1]);
 	int resolution_length = std::atoi(argv[2]);
@@ -248,9 +284,7 @@ int main(int argc, char **argv){
 	int bs, bb;
 	if(argc == 5){ bs = std::atoi(argv[3]); bb = std::atoi(argv[4]); }
 	else if(argc == 7){ bs = std::atoi(argv[5]); bb = std::atoi(argv[6]); }
-	else { std::cerr << "usage: " << argv[0] << " md len            (solver check)\n"
-	                 << "       " << argv[0] << " md len bs bb       (table for beta=(bs,bb))\n"
-	                 << "       " << argv[0] << " md len as aa bs bb (alpha*beta)\n"; return 1; }
+	else { print_usage(argv[0]); return 1; }
 
 	if(bs < 0 || bs > resolution_length){ std::cerr << "beta filtration out of range\n"; return 1; }
 
