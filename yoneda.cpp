@@ -16,6 +16,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <stdexcept>
 
 //----------------------------------------------------------------------------
 // Per-step resolution data, loaded from disk.
@@ -305,10 +306,21 @@ int main(int argc, char **argv){
 	std::vector<matrix_mem<tauPoly>> psi(maxlev + 1);
 	psi[0].set_rank(R[0].F.total_rank);
 	int cog0 = R[0].F.position_of_gens[0];
+	// Use the tau-Bockstein cycle representative of beta={bs-bb} as the seed of the
+	// chain map.  singleton(bb) would be wrong whenever the representative involves
+	// a tau power or a linear combination of cogenerators.
+	TVec beta_rep = (cyc[bs].count(bb)) ? cyc[bs].at(bb) : tau_module_oper.singleton(bb);
 	for(int p=0; p<R[0].F.total_rank; ++p)
-		psi[0].insert(p, (p==cog0) ? tau_module_oper.singleton(bb) : tau_module_oper.zero());
+		psi[0].insert(p, (p==cog0) ? beta_rep : tau_module_oper.zero());
+
 	for(int i=0; i<maxlev; ++i){
 		psi[i+1].set_rank(R[i+1].F.total_rank);
+
+		// Position -> cogenerator index map for F_{i+1}, for O(log n) lookup.
+		std::map<int,int> pos_to_cog_next;
+		for(unsigned a=0; a<R[i+1].F.generators.rank; ++a)
+			pos_to_cog_next[(int)R[i+1].F.position_of_gens[a]] = (int)a;
+
 		for(int x=0; x<R[i+1].F.total_rank; ++x){
 			TVec u;
 			if(invInj[i+1].solve(tau_module_oper.singleton(x), u)){
@@ -316,38 +328,113 @@ int main(int argc, char **argv){
 				TVec fv  = apply_chainmap(v, R[i].F, psi[i], R[i+bs].F, MOP);
 				TVec dfv = R[i+bs+1].inj.maps_to( R[i+bs].qut.maps_to(fv) );
 				psi[i+1].insert(x, proj_cogens(dfv, R[i+bs+1].F));
-			} else
-				psi[i+1].insert(x, tau_module_oper.zero());
+			} else {
+				// Failing position: only cogenerator unit positions can be recovered.
+				// Find j_a: the X_{i+1} index j such that inj_{i+1}(e_j) contains x.
+				// Chain condition: sum_{y in inj(j_a)} coef_y * psi[i+1](y) = dfv.
+				// Solve for psi[i+1](x) = (dfv + sum_{y!=x} coef_y*psi[i+1](y)) / coef_x.
+				auto it = pos_to_cog_next.find(x);
+				if(it != pos_to_cog_next.end()){
+					int j_a = -1;
+					TVec injja;
+					for(unsigned j=0; j<(unsigned)R[i+1].Xrank && j_a<0; ++j){
+						injja = R[i+1].inj.find(j);
+						for(auto &tm : injja.dataArray)
+							if((int)tm.ind == x){ j_a = (int)j; break; }
+					}
+					if(j_a >= 0){
+						TVec v; secQut[i].solve(tau_module_oper.singleton(j_a), v);
+						TVec fv  = apply_chainmap(v, R[i].F, psi[i], R[i+bs].F, MOP);
+						TVec dfv = R[i+bs+1].inj.maps_to( R[i+bs].qut.maps_to(fv) );
+						TVec rhs = proj_cogens(dfv, R[i+bs+1].F);
+						tauPoly coef_x = 0;
+						for(auto &tm : injja.dataArray){
+							if((int)tm.ind == x){ coef_x = tm.coeficient; continue; }
+							auto psi_y = psi[i+1].find(tm.ind);
+							rhs = tau_module_oper.add(rhs, tau_module_oper.scalor_mult(tm.coeficient, psi_y));
+						}
+						// coef_x = tau^k; if k>0 divide rhs by tau^k (multiply by tau^{-k})
+						if(coef_x > 0)
+							rhs = tau_module_oper.scalor_mult(-coef_x, rhs);
+						psi[i+1].insert(x, rhs);
+					} else
+						psi[i+1].insert(x, tau_module_oper.zero());
+				} else
+					psi[i+1].insert(x, tau_module_oper.zero());
+			}
 		}
 	}
-	//chain map on cogenerators: M[i].find(a) = proj_cogens(f_i(cogenerator a))
+	// Chain map on cogenerators: M[i].find(a) = proj_cogens(f_i(cogenerator a)).
+	// Cycle correction: if cog_a is a strict cycle (d_i(cog_a)=0), then
+	// f_i(cog_a) must also be a cycle.  If it isn't, add cogenerators of F_{i+bs}
+	// whose boundary equals the unwanted boundary, cancelling it mod 2.
 	std::vector<matrix_mem<tauPoly>> M(maxlev + 1);
 	for(int i=0; i<=maxlev; ++i){
 		M[i].set_rank(R[i].F.generators.rank);
 		for(unsigned a=0; a<R[i].F.generators.rank; ++a){
-			TVec cog = tau_module_oper.singleton(R[i].F.position_of_gens[a]);
+			int pa = (int)R[i].F.position_of_gens[a];
+			TVec cog = tau_module_oper.singleton(pa);
 			TVec fa  = apply_chainmap(cog, R[i].F, psi[i], R[i+bs].F, MOP);
+			// Check whether cog_a is a strict cycle.
+			if(i+1 < (int)R.size() && i+bs+1 < (int)R.size()){
+				TVec d_cog = R[i+1].inj.maps_to(R[i].qut.maps_to(cog));
+				if(tau_module_oper.isZero(d_cog)){
+					// cog_a is a strict cycle; verify f_i(cog_a) lies in ker(d_{i+bs}).
+					TVec dfa = R[i+bs+1].inj.maps_to(R[i+bs].qut.maps_to(fa));
+					if(!tau_module_oper.isZero(dfa)){
+						// Collect positions already in fa to avoid cancelling existing terms.
+						std::set<int> fa_pks;
+						for(auto &tm : fa.dataArray) fa_pks.insert((int)tm.ind);
+						for(unsigned k=0; k<R[i+bs].F.generators.rank && !tau_module_oper.isZero(dfa); ++k){
+							int pk = (int)R[i+bs].F.position_of_gens[k];
+							if(fa_pks.count(pk)) continue;  // skip: already in fa
+							TVec dk = R[i+bs+1].inj.maps_to(R[i+bs].qut.maps_to(tau_module_oper.singleton(pk)));
+							// dk == dfa  ↔  dk + dfa == 0 over F_2
+							if(tau_module_oper.isZero(tau_module_oper.add(dk, dfa))){
+								fa  = tau_module_oper.add(fa,  tau_module_oper.singleton(pk));
+								dfa = tau_module_oper.add(dfa, dk);  // = 0 now
+							}
+						}
+					}
+				}
+			}
 			M[i].insert(a, proj_cogens(fa, R[i+bs].F));
 		}
 	}
 
-	//product of class (s,a) with beta: name M[s](cycle_rep(s,a)) in filtration s+bs
-	auto product = [&](int s, int a) -> TVec {
+	//product of class (s,a) with beta: name M[s](cycle_rep(s,a)) in filtration s+bs.
+	//Returns an empty vector and sets ok=false when the image falls outside the
+	//cycle table (degree-boundary overflow: the product lives beyond max_deg).
+	auto product = [&](int s, int a, bool &ok) -> TVec {
 		TVec rep = (cyc[s].count(a)) ? cyc[s].at(a) : tau_module_oper.singleton(a);
 		TVec img = M[s].maps_to(rep);
-		return find_cycle(cyc[s+bs], img);
+		try {
+			ok = true;
+			return find_cycle(cyc[s+bs], img);
+		} catch (const std::out_of_range &) {
+			ok = false;
+			return TVec{};
+		}
 	};
 
 	if(argc == 7){
 		int as = std::atoi(argv[3]), aa = std::atoi(argv[4]);
 		if(as < 0 || as > maxlev){ std::cerr << "alpha filtration out of lifted range (<= " << maxlev << ")\n"; return 1; }
-		TVec res = product(as, aa);
-		std::cout << "{" << as << "-" << aa << "} * {" << bs << "-" << bb << "}  =  "
-		          << fmt(as+bs, res) << "\n";
+		bool ok;
+		TVec res = product(as, aa, ok);
+		if(!ok)
+			std::cout << "{" << as << "-" << aa << "} * {" << bs << "-" << bb << "}  =  ?\n";
+		else
+			std::cout << "{" << as << "-" << aa << "} * {" << bs << "-" << bb << "}  =  "
+			          << fmt(as+bs, res) << "\n";
 	} else {
 		for(int i=0; i<=maxlev; ++i)
-			for(unsigned a=0; a<R[i].F.generators.rank; ++a)
-				std::cout << "{" << i << "-" << a << "}\t->\t" << fmt(i+bs, product(i,a)) << "\n";
+			for(unsigned a=0; a<R[i].F.generators.rank; ++a){
+				bool ok;
+				TVec res = product(i, a, ok);
+				std::cout << "{" << i << "-" << a << "}\t->\t"
+				          << (ok ? fmt(i+bs, res) : "?") << "\n";
+			}
 	}
 	return 0;
 }
